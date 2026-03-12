@@ -2,7 +2,7 @@
 
 A **Face Recognition and Bangladesh ID Validation API** built using **FastAPI**, **InsightFace (ArcFace)**, and **Tesseract OCR**.
 
-This project verifies whether a **Bangladesh ID card/Passport/License is valid** and checks if the **selfie matches the face on the ID card**.
+This project verifies whether a **Bangladesh ID card is valid** and checks if the **selfie matches the face on the ID card**.
 
 The entire system runs inside **Docker containers** for easy setup and deployment.
 
@@ -65,7 +65,7 @@ Example response:
 POST /validate-id
 ```
 
-Uses **Tesseract OCR** to check if the uploaded image contains a **Bangladesh National ID/Passport/License card**.
+Uses **Tesseract OCR** to check if the uploaded image contains a **Bangladesh National ID card**.
 
 Request:
 

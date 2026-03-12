@@ -1,0 +1,18 @@
+# ============================================================
+# docker-compose.yml
+# Run with: docker-compose up --build
+# ============================================================
+
+services:
+  face-recognition-api:
+    build: .
+    container_name: face_api
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+      - insightface_models:/root/.insightface   # cache model across restarts
+    restart: unless-stopped
+
+volumes:
+  insightface_models:

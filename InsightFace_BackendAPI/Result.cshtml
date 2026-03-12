@@ -1,0 +1,573 @@
+@using Face_Recognition.Services
+@model FaceVerificationResult
+
+@{
+    ViewData["Title"] = "Verification Result";
+    Layout = null;
+
+    bool isError   = Model.Error != null;
+    bool isMatch   = !isError && Model.Match;
+    // InsightFace returns Similarity directly (0.0 to 1.0)
+    double similarity = Math.Max(0, Model.Similarity * 100);
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SecureBank — Verification Result</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --navy:       #0b1629;
+            --navy-mid:   #112240;
+            --navy-light: #1a3560;
+            --gold:       #d4a843;
+            --gold-light: #e8c37a;
+            --gold-dim:   #8a6b25;
+            --cream:      #f5f0e8;
+            --white:      #ffffff;
+            --muted:      #8899aa;
+            --danger:     #e05454;
+            --success:    #2ecc8a;
+            --warning:    #f59e0b;
+            --border:     rgba(212,168,67,0.18);
+            --radius:     14px;
+        }
+
+        body {
+            background: var(--navy);
+            color: var(--cream);
+            font-family: 'DM Sans', sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ── Navbar ──────────────────────────────────────────── */
+        .navbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1.2rem 3rem;
+            border-bottom: 1px solid var(--border);
+            background: rgba(11,22,41,0.97);
+            backdrop-filter: blur(12px);
+            position: sticky; top: 0; z-index: 100;
+        }
+
+        .nav-logo { display: flex; align-items: center; gap: 0.75rem; text-decoration: none; }
+
+        .logo-emblem {
+            width: 38px; height: 38px;
+            background: linear-gradient(135deg, var(--gold), var(--gold-dim));
+            border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.1rem;
+        }
+
+        .logo-text { font-family: 'Playfair Display', serif; font-size: 1.25rem; color: var(--white); }
+        .logo-text span { color: var(--gold); }
+
+        .nav-badge {
+            font-size: 0.72rem; font-weight: 600;
+            background: rgba(212,168,67,0.12); color: var(--gold);
+            border: 1px solid var(--border);
+            padding: 0.3rem 0.8rem; border-radius: 999px;
+            letter-spacing: 0.06em; text-transform: uppercase;
+        }
+
+        /* ── Two-column layout ───────────────────────────────── */
+        .page-body {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            min-height: calc(100vh - 67px);
+        }
+
+        /* ══ LEFT COLUMN ════════════════════════════════════════ */
+        .left-col {
+            background:
+                radial-gradient(ellipse 80% 70% at 20% 30%, rgba(212,168,67,0.09) 0%, transparent 60%),
+                linear-gradient(160deg, var(--navy) 0%, var(--navy-mid) 100%);
+            padding: 4rem 3.5rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            position: relative;
+            border-right: 1px solid var(--border);
+        }
+
+        .left-col::after {
+            content: '';
+            position: absolute;
+            right: -1px; top: 10%;
+            height: 80%; width: 1px;
+            background: linear-gradient(180deg, transparent, var(--gold), transparent);
+            opacity: 0.35;
+        }
+
+        .hero-tag {
+            display: inline-flex; align-items: center; gap: 0.5rem;
+            font-size: 0.72rem; font-weight: 600;
+            color: var(--gold); text-transform: uppercase; letter-spacing: 0.1em;
+            background: rgba(212,168,67,0.1); border: 1px solid var(--border);
+            padding: 0.4rem 1rem; border-radius: 999px;
+            margin-bottom: 2rem; width: fit-content;
+        }
+
+        .hero-tag::before {
+            content: ''; width: 6px; height: 6px;
+            background: var(--gold); border-radius: 50%;
+        }
+
+        .hero-title {
+            font-family: 'Playfair Display', serif;
+            font-size: clamp(2rem, 3vw, 3rem);
+            font-weight: 700; color: var(--white);
+            line-height: 1.15; letter-spacing: -0.02em;
+            margin-bottom: 1.2rem;
+        }
+
+        .hero-title span { color: var(--gold); }
+
+        .hero-subtitle {
+            font-size: 0.92rem; color: var(--muted);
+            line-height: 1.8; margin-bottom: 2.8rem; max-width: 380px;
+        }
+
+        /* ── Vertical steps — all 3 states ──────────────────── */
+        .steps { display: flex; flex-direction: column; gap: 0; margin-bottom: 3rem; }
+
+        .step-row {
+            display: flex; align-items: flex-start; gap: 1rem;
+            position: relative;
+        }
+
+        /* Connector line between circles */
+        .step-row:not(:last-child)::before {
+            content: '';
+            position: absolute;
+            left: 19px; top: 40px;
+            width: 2px;
+            height: calc(100% - 8px);
+        }
+
+        /* Grey line for upcoming steps, gold for done steps */
+        .step-row.done::before    { background: var(--gold); opacity: 0.6; }
+        .step-row.active::before  { background: var(--border); }
+        .step-row.inactive::before { background: var(--border); }
+
+        .step-left {
+            display: flex; flex-direction: column;
+            align-items: center; padding-bottom: 1.4rem;
+        }
+
+        .step-circle {
+            width: 40px; height: 40px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.85rem; font-weight: 700;
+            flex-shrink: 0; z-index: 1;
+            transition: all 0.3s ease;
+        }
+
+        /* Done = gold filled with checkmark */
+        .step-row.done   .step-circle { background: var(--gold); color: var(--navy); }
+        /* Active = gold border */
+        .step-row.active .step-circle { background: var(--gold); color: var(--navy); box-shadow: 0 0 0 4px rgba(212,168,67,0.2); }
+        /* Inactive = dim */
+        .step-row.inactive .step-circle { background: var(--navy-light); color: var(--muted); border: 1px solid var(--border); }
+
+        .step-info { display: flex; flex-direction: column; gap: 0.15rem; padding-top: 0.6rem; padding-bottom: 1.4rem; }
+
+        .step-name { font-size: 0.88rem; font-weight: 600; }
+        .step-row.done     .step-name { color: var(--gold); }
+        .step-row.active   .step-name { color: var(--white); }
+        .step-row.inactive .step-name { color: var(--muted); }
+
+        .step-desc { font-size: 0.75rem; color: var(--muted); }
+        .step-row.done .step-desc { color: rgba(212,168,67,0.6); }
+
+        /* ── Feature badges ──────────────────────────────────── */
+        .features { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+
+        .feature-badge {
+            display: flex; align-items: center; gap: 0.4rem;
+            font-size: 0.73rem; font-weight: 500;
+            padding: 0.4rem 0.9rem; border-radius: 999px;
+            background: rgba(212,168,67,0.07);
+            color: var(--gold-light);
+            border: 1px solid rgba(212,168,67,0.15);
+        }
+
+        /* ══ RIGHT COLUMN ═══════════════════════════════════════ */
+        .right-col {
+            background: var(--navy-mid);
+            padding: 4rem 3rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        /* ── Result card ─────────────────────────────────────── */
+        .result-card {
+            background: var(--navy);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 2.5rem 2.2rem;
+            text-align: center;
+            box-shadow: 0 24px 60px rgba(0,0,0,0.4);
+            animation: fadeUp 0.45s cubic-bezier(0.22,1,0.36,1) both;
+        }
+
+        @@keyframes fadeUp {
+            from { opacity: 0; transform: translateY(18px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ── Big icon ────────────────────────────────────────── */
+        .result-icon-wrap {
+            width: 84px; height: 84px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 2.2rem;
+            margin: 0 auto 1.4rem;
+            animation: popIn 0.5s 0.2s cubic-bezier(0.34,1.56,0.64,1) both;
+        }
+
+        @@keyframes popIn {
+            from { opacity: 0; transform: scale(0.5); }
+            to   { opacity: 1; transform: scale(1); }
+        }
+
+        .icon-match   { background: rgba(46,204,138,0.1);  border: 2px solid var(--success); }
+        .icon-nomatch { background: rgba(224,84,84,0.1);   border: 2px solid var(--danger);  }
+        .icon-error   { background: rgba(245,158,11,0.1);  border: 2px solid var(--warning); }
+
+        /* ── Status badge ────────────────────────────────────── */
+        .status-badge {
+            display: inline-block;
+            padding: 0.32rem 1rem; border-radius: 999px;
+            font-size: 0.72rem; font-weight: 700;
+            letter-spacing: 0.09em; text-transform: uppercase;
+            margin-bottom: 1rem;
+        }
+
+        .badge-match   { background: rgba(46,204,138,0.12); color: var(--success); border: 1px solid rgba(46,204,138,0.3); }
+        .badge-nomatch { background: rgba(224,84,84,0.12);  color: var(--danger);  border: 1px solid rgba(224,84,84,0.3);  }
+        .badge-error   { background: rgba(245,158,11,0.12); color: var(--warning); border: 1px solid rgba(245,158,11,0.3); }
+
+        .result-title {
+            font-family: 'Playfair Display', serif;
+            font-size: 1.8rem; font-weight: 700;
+            color: var(--white); margin-bottom: 0.6rem;
+            letter-spacing: -0.02em;
+        }
+
+        .result-message { color: var(--muted); font-size: 0.88rem; line-height: 1.7; margin-bottom: 1.8rem; }
+
+        /* ── Similarity meter ────────────────────────────────── */
+        .meter-box {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1.1rem 1.3rem;
+            margin-bottom: 1.6rem; text-align: left;
+        }
+
+        .meter-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem; }
+        .meter-label  { font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+        .meter-pct    { font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; color: var(--cream); }
+
+        .meter-track  { height: 8px; background: var(--navy-light); border-radius: 4px; overflow: hidden; margin-bottom: 0.5rem; }
+
+        .meter-fill {
+            height: 100%; border-radius: 4px; width: 0%;
+            transition: width 1.2s cubic-bezier(0.22,1,0.36,1);
+        }
+
+        .meter-fill.match   { background: linear-gradient(90deg, #2ecc8a, #1aab70); }
+        .meter-fill.nomatch { background: linear-gradient(90deg, #e05454, #c03434); }
+
+        .meter-sub { font-family: 'JetBrains Mono', monospace; font-size: 0.68rem; color: var(--muted); }
+
+        /* ── Info grid ───────────────────────────────────────── */
+        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.7rem; margin-bottom: 1.8rem; }
+
+        .info-item {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 0.75rem 1rem; text-align: left;
+        }
+
+        .info-item-label { font-size: 0.67rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); margin-bottom: 0.25rem; }
+        .info-item-value { font-size: 0.82rem; font-weight: 600; }
+
+        .val-match   { color: var(--success); }
+        .val-nomatch { color: var(--danger);  }
+
+        /* ── Buttons ─────────────────────────────────────────── */
+        .btn-row { display: flex; gap: 0.75rem; }
+
+        .btn-primary {
+            flex: 1; padding: 0.9rem;
+            background: linear-gradient(135deg, var(--gold), var(--gold-dim));
+            color: var(--navy);
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.88rem; font-weight: 700;
+            border: none; border-radius: var(--radius);
+            text-decoration: none; text-align: center;
+            cursor: pointer; transition: all 0.2s;
+        }
+
+        .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+
+        .btn-secondary {
+            flex: 1; padding: 0.9rem;
+            background: transparent; color: var(--cream);
+            font-family: 'DM Sans', sans-serif;
+            font-size: 0.88rem; font-weight: 600;
+            border: 1.5px solid var(--border);
+            border-radius: var(--radius);
+            text-decoration: none; text-align: center; transition: all 0.2s;
+        }
+
+        .btn-secondary:hover { border-color: var(--gold-dim); background: rgba(212,168,67,0.05); }
+
+        /* ── Footer ──────────────────────────────────────────── */
+        .footer {
+            background: var(--navy); border-top: 1px solid var(--border);
+            padding: 1rem 3rem;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+
+        .footer-text { font-size: 0.73rem; color: var(--muted); }
+        .footer-text span { color: var(--gold); }
+
+        /* ── Responsive ──────────────────────────────────────── */
+        @@media (max-width: 900px) {
+            .page-body { grid-template-columns: 1fr; }
+            .left-col  { padding: 2.5rem 2rem; border-right: none; border-bottom: 1px solid var(--border); }
+            .right-col { padding: 2.5rem 1.5rem; }
+            .left-col::after { display: none; }
+            .navbar { padding: 1rem 1.5rem; }
+            .info-grid { grid-template-columns: 1fr; }
+            .btn-row { flex-direction: column; }
+            .footer { flex-direction: column; gap: 0.4rem; text-align: center; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ── Navbar ───────────────────────────────────────────────── -->
+    <nav class="navbar">
+        <a class="nav-logo" href="/">
+            <div class="logo-emblem">🏦</div>
+            <span class="logo-text">Secure<span>Bank</span></span>
+        </a>
+        <span class="nav-badge">🔒 Secure Session</span>
+    </nav>
+
+    <div class="page-body">
+
+        <!-- ══ LEFT — Steps updated to show current position ════ -->
+        <div class="left-col">
+
+            <div class="hero-tag">AI-Powered Identity Verification</div>
+
+            <h1 class="hero-title">Verify Your<br /><span>Identity</span></h1>
+
+            <p class="hero-subtitle">
+                @if (isError)
+                {
+                    <text>Verification could not be completed. Please check the error and try again.</text>
+                }
+                else if (isMatch)
+                {
+                    <text>Your identity has been confirmed successfully. All verification checks have passed.</text>
+                }
+                else
+                {
+                    <text>The faces did not match. Please try again with a clearer, well-lit photo.</text>
+                }
+            </p>
+
+            <!-- Steps — step 1 = done, step 2 = done, step 3 = active -->
+            <div class="steps">
+
+                <div class="step-row done">
+                    <div class="step-left">
+                        <div class="step-circle">✓</div>
+                    </div>
+                    <div class="step-info">
+                        <span class="step-name">Upload Photos</span>
+                        <span class="step-desc">ID document + live selfie</span>
+                    </div>
+                </div>
+
+                <div class="step-row done">
+                    <div class="step-left">
+                        <div class="step-circle">✓</div>
+                    </div>
+                    <div class="step-info">
+                        <span class="step-name">AI Verification</span>
+                        <span class="step-desc">Face matching complete</span>
+                    </div>
+                </div>
+
+                <div class="step-row active">
+                    <div class="step-left">
+                        <div class="step-circle">3</div>
+                    </div>
+                    <div class="step-info">
+                        <span class="step-name">Result</span>
+                        <span class="step-desc">
+                            @if (isError)       { <text>Error occurred</text> }
+                            else if (isMatch)   { <text>Identity confirmed ✅</text> }
+                            else                { <text>Verification failed ❌</text> }
+                        </span>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Feature badges -->
+            <div class="features">
+                <span class="feature-badge">🔐 Login Auth</span>
+                <span class="feature-badge">📋 KYC</span>
+                <span class="feature-badge">🏦 Account Opening</span>
+                <span class="feature-badge">💳 Transaction Approval</span>
+            </div>
+
+        </div>
+
+        <!-- ══ RIGHT — Result card ═══════════════════════════════ -->
+        <div class="right-col">
+            <div class="result-card">
+
+                @if (isError)
+                {
+                    <div class="result-icon-wrap icon-error">⚠️</div>
+                    <span class="status-badge badge-error">Verification Error</span>
+                    <h2 class="result-title">Could Not Verify</h2>
+                    <p class="result-message">@Model.Error</p>
+                }
+                else if (isMatch)
+                {
+                    <div class="result-icon-wrap icon-match">✅</div>
+                    <span class="status-badge badge-match">Identity Confirmed</span>
+                    <h2 class="result-title">Verification Successful</h2>
+                    <p class="result-message">
+                        The selfie matches the ID photo.<br />
+                        This customer's identity has been verified successfully.
+                    </p>
+
+                    <div class="meter-box">
+                        <div class="meter-header">
+                            <span class="meter-label">Face Similarity Score</span>
+                            <span class="meter-pct">@similarity.ToString("F1")%</span>
+                        </div>
+                        <div class="meter-track">
+                            <div class="meter-fill match" id="meterFill"
+                                 data-target="@similarity.ToString("F0")"></div>
+                        </div>
+                        <span class="meter-sub">
+                            Similarity: @Model.Similarity.ToString("F4") &nbsp;·&nbsp; Confidence: @Model.Confidence &nbsp;·&nbsp; Threshold: @Model.Threshold ✓
+                        </span>
+                    </div>
+
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <div class="info-item-label">Login Auth</div>
+                            <div class="info-item-value val-match">✅ Approved</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-item-label">KYC Status</div>
+                            <div class="info-item-value val-match">✅ Verified</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-item-label">Account Opening</div>
+                            <div class="info-item-value val-match">✅ Eligible</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-item-label">Transaction Auth</div>
+                            <div class="info-item-value val-match">✅ Permitted</div>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <div class="result-icon-wrap icon-nomatch">❌</div>
+                    <span class="status-badge badge-nomatch">Identity Mismatch</span>
+                    <h2 class="result-title">Verification Failed</h2>
+                    <p class="result-message">
+                        The selfie does not match the ID photo.<br />
+                        Please try again with a clearer, well-lit photo.
+                    </p>
+
+                    <div class="meter-box">
+                        <div class="meter-header">
+                            <span class="meter-label">Face Similarity Score</span>
+                            <span class="meter-pct">@similarity.ToString("F1")%</span>
+                        </div>
+                        <div class="meter-track">
+                            <div class="meter-fill nomatch" id="meterFill"
+                                 data-target="@similarity.ToString("F0")"></div>
+                        </div>
+                        <span class="meter-sub">
+                            Similarity: @Model.Similarity.ToString("F4") &nbsp;·&nbsp; Confidence: @Model.Confidence &nbsp;·&nbsp; Threshold: @Model.Threshold ✗
+                        </span>
+                    </div>
+
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <div class="info-item-label">Login Auth</div>
+                            <div class="info-item-value val-nomatch">❌ Denied</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-item-label">KYC Status</div>
+                            <div class="info-item-value val-nomatch">❌ Failed</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-item-label">Account Opening</div>
+                            <div class="info-item-value val-nomatch">❌ Blocked</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-item-label">Transaction Auth</div>
+                            <div class="info-item-value val-nomatch">❌ Denied</div>
+                        </div>
+                    </div>
+                }
+
+                <div class="btn-row">
+                    <a href="/" class="btn-secondary">← Try Again</a>
+                    <a href="/" class="btn-primary">🏠 Back to Home</a>
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ── Footer ───────────────────────────────────────────────── -->
+    <footer class="footer">
+        <span class="footer-text">© 2026 <span>SecureBank</span>. All rights reserved.</span>
+        <span class="footer-text">Powered by <span>AI Face Recognition</span></span>
+    </footer>
+
+    <script>
+        // Animate the similarity meter bar on page load
+        window.addEventListener('load', function () {
+            const fill = document.getElementById('meterFill');
+            if (fill) {
+                const target = fill.getAttribute('data-target');
+                setTimeout(() => { fill.style.width = target + '%'; }, 200);
+            }
+        });
+    </script>
+
+</body>
+</html>
